@@ -1,0 +1,139 @@
+<?php
+session_start();
+include('../config.php'); 
+include('../redirect.php');
+
+if(isset($_POST['add_product'])){
+  $category_id = mysqli_real_escape_string($conn,$_POST['category_id']);
+
+  $name = mysqli_real_escape_string($conn,$_POST['name']);
+  $slug= mysqli_real_escape_string($conn,$_POST['slug']);
+  $small_description = mysqli_real_escape_string($conn,$_POST['small_description']);
+  $description = mysqli_real_escape_string($conn,$_POST['description']);
+  $original_price = mysqli_real_escape_string($conn,$_POST['original_price']);
+  $selling_price = mysqli_real_escape_string($conn,$_POST['selling_price']);
+  $quantity = mysqli_real_escape_string($conn,$_POST['quantity']);
+  $meta_keywords=mysqli_real_escape_string($conn,$_POST['meta_keywords']); 
+  $image = mysqli_real_escape_string($conn,$_FILES['image']['name']);
+  $path = "uploads/products";
+  $image_ext = pathinfo($image, PATHINFO_EXTENSION);
+  $filename = time().'.'.$image_ext;
+  
+  if(empty(trim($name)) || empty(trim($slug)) ||empty(trim($description)) || empty(trim($small_description)) || empty(($original_price)) || empty(trim($quantity)) ||empty(trim($selling_price)) || empty(trim($meta_keywords))  ){
+    $_SESSION['msg'] = "All Fields are Mandatory";
+    header('location:add_product.php');
+  }
+  else if (!preg_match('/^[a-zA-Z0-9 ]+$/', $name)) {
+    $_SESSION['msg'] = "Product Name must contain numbers, letters and spaces only!";
+    header('location:add_product.php');
+  }
+  else if (!preg_match('/^[a-zA-Z0-9 ]+$/', $slug)) {
+    $_SESSION['msg'] = "Slug must contain numbers, letters and spaces only!";
+    header('location:add_product.php');
+  }
+  else if (strlen($_POST["small_description"]) < '3' || strlen($_POST["small_description"]) > '20' ) {
+    $_SESSION['msg'] = "Small Description must be greater then 3 and less then 20";
+    header('location:add_product.php');
+  }
+  else if (strlen($_POST["description"]) < '10' || strlen($_POST["description"]) > '200' ) {
+    $_SESSION['msg'] = "Description must be greater then 10 and less then 200";
+    header('location:add_product.php');
+  }
+  else if (!preg_match("/^\\d+$/", $original_price) || $original_price<1 ) {
+    $_SESSION['msg'] = "Original Price must be positive integer";
+    header('location:add_product.php');
+  }
+  else if (!preg_match("/^\\d+$/", $selling_price)  || $selling_price<1 ) {
+    $_SESSION['msg'] = "Selling Price must be positive integer";
+    header('location:add_product.php');
+  }
+  else if (!preg_match("/^\\d+$/", $quantity) || $quantity<1 ) {
+    $_SESSION['msg'] = "Quantity must be positive integer";
+    header('location:add_product.php');
+  }
+  else if (!preg_match('/^[a-zA-Z0-9 ]+$/', $meta_keywords)) {
+    $_SESSION['msg'] = "Meta Keywords must contain numbers, letters and spaces only!";
+    header('location:add_product.php');
+  }
+  else{
+  $prod_query = "INSERT INTO products(category_id,name, slug,small_description,description,original_price,selling_price,image,quantity,meta_keywords)
+    VALUES ('$category_id','$name','$slug','$small_description','$description','$original_price','$selling_price','$filename','$quantity','$meta_keywords')";
+  $prod_query_run=mysqli_query($conn,$prod_query);
+  
+  if($prod_query_run)
+  {
+    move_uploaded_file($_FILES['image']['tmp_name'],$path.'/'.$filename);
+    redirect('product.php','Product Added Successfully');
+  }
+  else
+  {
+    redirect('product.php','Failed to Add Product');
+  }
+}
+}else if(isset($_POST['update_category']))
+{
+  $category_id = mysqli_real_escape_string($conn,$_POST['category_id']);
+  $name = mysqli_real_escape_string($conn,$_POST['name']);
+  $slug= mysqli_real_escape_string($conn,$_POST['slug']);
+  $description = mysqli_real_escape_string($conn,$_POST['description']);
+  $meta_keywords=mysqli_real_escape_string($conn,$_POST['meta_keywords']); 
+
+  $new_image = $_FILES['image']['name'];
+  $previous_image=$_POST['previous_image'];
+  if($new_image != "")
+  {
+    $image_ext = pathinfo($new_image, PATHINFO_EXTENSION);
+    $update_filename = time().'.'.$image_ext;
+  }
+  else
+  {
+    $update_filename=$previous_image;
+  }
+
+  if(empty(trim($name)) || empty(trim($slug)) || empty(trim($description)) || empty(trim($meta_keywords)) ){
+    $_SESSION['msg'] = "All Fields are Mandatory";
+    header('location:edit_category.php?id='.$category_id);
+  }
+  else if (!preg_match('/^[\p{L} ]+$/u', $name)) {
+    $_SESSION['msg'] = "Category Name must contain letters and spaces only!";
+    header('location:edit_category.php?id='.$category_id);
+  }
+  else if (!preg_match('/^[\p{L} ]+$/u', $slug)) {
+    $_SESSION['msg'] = "Slug must contain letters and spaces only!";
+    header('location:edit_category.php');
+  }
+  else if (strlen($description) <= '3' && strlen($description) >= '100') {
+    $_SESSION['msg'] = "Description must contain atleast 3 Character and Not more then 100 Character";
+    header('location:edit_category.php?id='.$category_id);
+  }
+  else if (!preg_match('/^[a-zA-Z0-9 ]+$/', $meta_keywords)) {
+    $_SESSION['msg'] = "Meta Keywords must contain numbers, letters and spaces only!";
+    header('location:edit_category.php?id='.$category_id);
+  }
+  else{
+  $path = "uploads";
+  $update_category="UPDATE categories SET name='$name',slug='$slug',description='$description',meta_keywords='$meta_keywords',image='$update_filename' WHERE id='$category_id'";
+  $update_query_run = mysqli_query($conn, $update_category);
+  
+  if ($update_query_run) {
+    if($_FILES['image']['name'] != "")
+    {
+      move_uploaded_file($_FILES['image']['tmp_name'],$path.'/'.$update_filename);
+      if(file_exists("uploads/".$previous_image))
+      {  
+        unlink("uploads/".$previous_image);
+      }
+    }
+      redirect("edit_category.php?id=$category_id","Category Updated Successfully");
+   } else {
+    redirect("edit_category.php?id=$category_id","Category Updation Failed");
+
+      // $_SESSION['msg'] = "Category Updation Failed";
+      // header("location: category.php");
+   }
+  }
+}
+else{
+  header('location: index.php');
+}
+?>
